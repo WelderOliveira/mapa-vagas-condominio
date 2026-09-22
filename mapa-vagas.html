@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mapa de vagas — condomínio</title>
+  <style>
+    :root {
+      --bg: #e8f0e4;
+      --road: #1a1a1a;
+      --path: #bdbdbd;
+      --path-edge: #9e9e9e;
+      --tower: #e8a54b;
+      --ink: #1c1c1c;
+      --muted: #5a5a5a;
+      --panel: #ffffff;
+      --C1: #2a9d8f;
+      --C2: #57c5b6;
+      --D1: #e76f51;
+      --D2: #f4a261;
+      --B2: #3a86ff;
+      --B1: #8338ec;
+      --A2: #fb5607;
+      --A1: #ff006e;
+      --ROT: #111111;
+      --RES: #9aa3a0;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: #f4f6f3;
+      color: var(--ink);
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 24px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: var(--panel);
+      border-bottom: 1px solid #dde3da;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    header h1 { margin: 0; font-size: 1.15rem; font-weight: 650; }
+    header p { margin: 4px 0 0; font-size: 0.85rem; color: var(--muted); }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .controls label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    select, button {
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 6px 10px;
+      border: 1px solid #cfd8cb;
+      border-radius: 6px;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    button:hover { background: #f0f4ee; }
+
+    main {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 16px;
+      padding: 16px;
+      max-width: 1480px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 1100px) {
+      main { grid-template-columns: 1fr; }
+    }
+
+    .map-wrap {
+      background: var(--bg);
+      border-radius: 12px;
+      overflow: auto;
+      border: 1px solid #d5dfd0;
+      padding: 16px;
+    }
+
+    .map {
+      width: 1360px;
+      margin: 0 auto;
+    }
+
+    .zone-tags {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 650;
+    }
+
+    .zone-tags span:nth-child(1) { text-align: left; }
+    .zone-tags span:nth-child(2) { text-align: center; }
+    .zone-tags span:nth-child(3) { text-align: right; }
+
+    /* Planta: asas 2×2 + estacionamento central + caminhos únicos */
+    .site {
+      display: grid;
+      grid-template-columns:
+        minmax(110px, 124px) 12px minmax(110px, 124px) 12px 40px
+        minmax(270px, 320px)
+        40px 12px minmax(110px, 124px) 12px minmax(110px, 124px);
+      grid-template-rows: auto 12px auto 12px auto;
+      gap: 6px 4px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .t-c2 { grid-column: 1; grid-row: 1; }
+    .t-c1 { grid-column: 3; grid-row: 1; }
+    .t-b2 { grid-column: 9; grid-row: 1; }
+    .t-b1 { grid-column: 11; grid-row: 1; }
+
+    .t-d2 { grid-column: 1; grid-row: 5; }
+    .t-d1 { grid-column: 3; grid-row: 5; }
+    .t-a2 { grid-column: 9; grid-row: 5; }
+    .t-a1 { grid-column: 11; grid-row: 5; }
+
+    .central {
+      grid-column: 6;
+      grid-row: 1 / 6;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px 10px;
+      background: #d0d4d0;
+      padding: 10px 8px;
+      border-radius: 6px;
+      position: relative;
+      align-self: stretch;
+    }
+
+    .central::before {
+      content: "";
+      position: absolute;
+      left: 47%;
+      right: 47%;
+      top: 12%;
+      bottom: 12%;
+      background: var(--road);
+      border-radius: 2px;
+      pointer-events: none;
+    }
+
+    .central::after {
+      content: "";
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      top: 48%;
+      height: 10px;
+      background: var(--road);
+      border-radius: 2px;
+      pointer-events: none;
+    }
+
+    .path-v {
+      background: var(--path);
+      border-radius: 3px;
+      width: 12px;
+      justify-self: center;
+      align-self: stretch;
+      border: 1px solid var(--path-edge);
+    }
+
+    .path-v-left-outer { grid-column: 2; grid-row: 1 / 6; }
+    .path-v-left-inner { grid-column: 4; grid-row: 1 / 6; }
+    .path-v-right-inner { grid-column: 8; grid-row: 1 / 6; }
+    .path-v-right-outer { grid-column: 10; grid-row: 1 / 6; }
+
+    .path-h-left {
+      grid-column: 5;
+      grid-row: 3;
+      background: var(--path);
+      height: 14px;
+      border-radius: 3px;
+      align-self: center;
+      border: 1px solid var(--path-edge);
+      position: relative;
+    }
+
+    .path-h-right {
+      grid-column: 7;
+      grid-row: 3;
+      background: var(--path);
+      height: 14px;
+      border-radius: 3px;
+      align-self: center;
+      border: 1px solid var(--path-edge);
+      position: relative;
+    }
+
+    .path-label {
+      position: absolute;
+      left: 50%;
+      top: -16px;
+      transform: translateX(-50%);
+      font-size: 0.62rem;
+      color: #555;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .tower {
+      background: var(--tower);
+      border-radius: 4px;
+      padding: 6px;
+      width: 100%;
+    }
+
+    .tower h3 {
+      margin: 0 0 4px;
+      font-size: 0.78rem;
+      text-align: center;
+      letter-spacing: 0.04em;
+    }
+
+    .tower .sub {
+      display: block;
+      font-size: 0.58rem;
+      font-weight: 500;
+      color: rgba(0,0,0,0.55);
+      letter-spacing: 0;
+      margin-top: 1px;
+    }
+
+    .tower .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+    }
+
+    .tower .u {
+      background: rgba(255,255,255,0.55);
+      font-size: 0.48rem;
+      text-align: center;
+      padding: 2px 0;
+      border-radius: 2px;
+      line-height: 1.15;
+      cursor: default;
+    }
+
+    .tower .u .uv {
+      display: block;
+      font-weight: 650;
+      opacity: 0.85;
+    }
+
+    .tower .u.hl {
+      outline: 2px solid #111;
+      background: #fff;
+    }
+
+    .col {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 1;
+    }
+
+    .spot {
+      min-height: 26px;
+      padding: 1px;
+      border-radius: 2px;
+      font-size: 0.5rem;
+      line-height: 1.1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #111;
+      border: 1px solid rgba(0,0,0,0.12);
+      cursor: default;
+      transition: transform 0.12s ease, outline 0.12s ease;
+      background: #fff;
+      text-align: center;
+    }
+
+    .spot .apt { font-weight: 600; opacity: 0.95; }
+
+    .spot:hover, .spot.highlight {
+      transform: scale(1.08);
+      outline: 2px solid #111;
+      z-index: 2;
+    }
+
+    .spot.dim { opacity: 0.22; }
+    .spot.rotativa { background: var(--ROT) !important; color: #fff; border-color: #000; }
+    .spot.reserva { background: var(--RES); color: #fff; }
+    .spot.C1 { background: var(--C1); color: #fff; }
+    .spot.C2 { background: var(--C2); }
+    .spot.D1 { background: var(--D1); color: #fff; }
+    .spot.D2 { background: var(--D2); }
+    .spot.B2 { background: var(--B2); color: #fff; }
+    .spot.B1 { background: var(--B1); color: #fff; }
+    .spot.A2 { background: var(--A2); color: #fff; }
+    .spot.A1 { background: var(--A1); color: #fff; }
+
+    .street { margin-top: 14px; }
+
+    .road {
+      background: var(--road);
+      height: 36px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+      margin: 4px 0;
+      position: relative;
+    }
+
+    .road .spur {
+      position: absolute;
+      left: 50%;
+      top: -22px;
+      width: 16px;
+      height: 22px;
+      background: var(--road);
+      transform: translateX(-50%);
+    }
+
+    .row-spots {
+      display: flex;
+      gap: 2px;
+      justify-content: space-between;
+    }
+
+    .row-spots .side {
+      display: flex;
+      gap: 2px;
+      flex: 1;
+    }
+
+    .row-spots .side.right { justify-content: flex-end; }
+    .row-spots .gap { width: 100px; flex-shrink: 0; }
+
+    .row-spots .spot {
+      flex: 1;
+      min-width: 0;
+      min-height: 32px;
+      font-size: 0.45rem;
+    }
+
+    aside {
+      background: var(--panel);
+      border: 1px solid #dde3da;
+      border-radius: 12px;
+      padding: 14px;
+      height: fit-content;
+      position: sticky;
+      top: 76px;
+    }
+
+    aside h2 { margin: 0 0 10px; font-size: 0.95rem; }
+
+    .legend { display: flex; flex-direction: column; gap: 6px; }
+
+    .legend button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      text-align: left;
+      border: 1px solid transparent;
+      background: transparent;
+      padding: 6px 8px;
+      border-radius: 6px;
+    }
+
+    .legend button:hover,
+    .legend button.active {
+      background: #f0f4ee;
+      border-color: #cfd8cb;
+    }
+
+    .swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      border: 1px solid rgba(0,0,0,0.15);
+    }
+
+    .legend .meta {
+      margin-left: auto;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    #detail {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid #e4ebe0;
+      font-size: 0.85rem;
+      color: var(--muted);
+      min-height: 64px;
+    }
+
+    #detail strong { color: var(--ink); }
+
+    .assign-panel {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid #e4ebe0;
+      max-height: 380px;
+      overflow: auto;
+    }
+
+    .assign-panel h3 { margin: 0 0 8px; font-size: 0.85rem; }
+
+    .assign-panel table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.75rem;
+    }
+
+    .assign-panel th,
+    .assign-panel td {
+      text-align: left;
+      padding: 4px 6px;
+      border-bottom: 1px solid #eef2eb;
+    }
+
+    .assign-panel th {
+      color: var(--muted);
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      background: var(--panel);
+    }
+
+    .tables-wrap {
+      grid-column: 1 / -1;
+      background: var(--panel);
+      border: 1px solid #dde3da;
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .tables-wrap h2 { margin: 0 0 12px; font-size: 1rem; }
+
+    .tower-tables {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .tower-tables section {
+      border: 1px solid #e4ebe0;
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .tower-tables h3 {
+      margin: 0 0 8px;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tower-tables table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.75rem;
+    }
+
+    .tower-tables td,
+    .tower-tables th {
+      padding: 3px 4px;
+      border-bottom: 1px solid #eef2eb;
+      text-align: left;
+    }
+
+    .access-note {
+      margin: 10px 0 0;
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Organização visual das vagas</h1>
+      <p>Layout da planta · C/D esquerda · A/B direita · caminhos cinza únicos</p>
+    </div>
+    <div class="controls">
+      <label>
+        Filtrar torre
+        <select id="filter">
+          <option value="ALL">Todas</option>
+          <option value="C2">C2</option>
+          <option value="C1">C1</option>
+          <option value="D2">D2</option>
+          <option value="D1">D1</option>
+          <option value="B2">B2</option>
+          <option value="B1">B1</option>
+          <option value="A2">A2</option>
+          <option value="A1">A1</option>
+          <option value="ROT">Rotativas</option>
+          <option value="RES">Reserva</option>
+        </select>
+      </label>
+      <button type="button" id="reset">Limpar filtro</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="map-wrap">
+      <div class="map" id="map"></div>
+    </div>
+    <aside>
+      <h2>Legenda</h2>
+      <div class="legend" id="legend"></div>
+      <div id="detail">Passe o mouse sobre uma vaga ou apartamento.</div>
+      <div class="assign-panel" id="assignPanel"></div>
+    </aside>
+    <div class="tables-wrap">
+      <h2>Apartamento → vaga (todas as torres)</h2>
+      <div class="tower-tables" id="allTables"></div>
+    </div>
+  </main>
+
+  <script>
+    const ROTATIVAS = new Set([42, 43, 110, 111]);
+
+    const UNITS = [
+      301, 302, 303, 304,
+      201, 202, 203, 204,
+      101, 102, 103, 104,
+      1, 2, 3, 4,
+    ];
+
+    // Vagas por torre: ORDEM = da mais perto da entrada (caminho cinza) → mais longe.
+    // Unidades casam nessa ordem: /301…/304, /201…, /101…, /001…/004
+    // Assim quem sobe mais escadas anda menos no pátio.
+    const SPOTS_ORDERED = {
+      // Superior esquerdo — ramo ↑ do caminho esquerdo (centro → norte)
+      C1: [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 94, 95, 96, 97, 98, 99],
+      C2: [89, 90, 91, 92, 93, 85, 86, 87, 88, 112, 113, 114, 115, 116, 117, 118],
+      // Inferior esquerdo — acesso SEMPRE pelo centro → ramo ↓ do caminho cinza.
+      // Perto do junction: colunas sul (84→77); depois rua do centro → fora (119→142).
+      // D1 e D2 dividem 50/50 o anel central sul (4+4) e a rua.
+      D1: [84, 83, 82, 81, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130],
+      D2: [80, 79, 78, 77, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142],
+      // Superior direito — ramo ↑ do caminho direito
+      B2: [54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 53, 52, 51, 50, 49, 48],
+      B1: [44, 45, 46, 47, 41, 40, 39, 38, 37, 36, 35, 34, 73, 74, 75, 76],
+      // Inferior direito — A2: miolo central (64–72) é o mais perto do caminho
+      // A1: 26→17 perto do ramo; 16 é a mais longe (ponta externa da rua)
+      A2: [64, 65, 66, 67, 68, 69, 70, 71, 72, 33, 32, 31, 30, 29, 28, 27],
+      A1: [26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 11, 12, 13, 14, 15, 16],
+    };
+
+    const COLORS = {
+      C1: "C1", C2: "C2", D1: "D1", D2: "D2",
+      B2: "B2", B1: "B1", A2: "A2", A1: "A1",
+      ROT: "rotativa", RES: "reserva",
+    };
+
+    const LABELS = {
+      C2: "C2 — superior esq. (externa)",
+      C1: "C1 — superior esq. (interna)",
+      D2: "D2 — inferior esq. (externa)",
+      D1: "D1 — inferior esq. (interna)",
+      B2: "B2 — superior dir. (interna)",
+      B1: "B1 — superior dir. (externa)",
+      A2: "A2 — inferior dir. (interna)",
+      A1: "A1 — inferior dir. (externa)",
+      ROT: "Rotativas (sem dono)",
+      RES: "Reserva / 2º carro",
+    };
+
+    const TOWER_SUB = {
+      C2: "sup. esq. externa",
+      C1: "sup. esq. interna",
+      D2: "inf. esq. externa",
+      D1: "inf. esq. interna",
+      B2: "sup. dir. interna",
+      B1: "sup. dir. externa",
+      A2: "inf. dir. interna",
+      A1: "inf. dir. externa",
+    };
+
+    function unitLabel(u) {
+      return "/" + String(u).padStart(3, "0");
+    }
+
+    const spotToApt = new Map();
+    const aptToSpot = new Map();
+
+    for (const [torre, spots] of Object.entries(SPOTS_ORDERED)) {
+      spots.forEach((spot, i) => {
+        const unit = UNITS[i];
+        spotToApt.set(spot, { torre, unit });
+        aptToSpot.set(`${torre}|${unit}`, spot);
+      });
+    }
+
+    function owner(n) {
+      if (ROTATIVAS.has(n)) return "ROT";
+      const a = spotToApt.get(n);
+      return a ? a.torre : "RES";
+    }
+
+    function range(from, to, step = 1) {
+      const arr = [];
+      if (step > 0) for (let i = from; i <= to; i += step) arr.push(i);
+      else for (let i = from; i >= to; i += step) arr.push(i);
+      return arr;
+    }
+
+    const COL_FAR_LEFT = range(100, 118);
+    const COL_MID_LEFT = range(99, 77, -1);
+    const COL_MID_RIGHT = range(54, 76);
+    const COL_FAR_RIGHT = range(53, 34, -1);
+    const STREET_TOP_LEFT = range(136, 119, -1);
+    const STREET_TOP_RIGHT = range(33, 17, -1);
+    const STREET_BOT_LEFT = range(137, 159);
+    const STREET_BOT_RIGHT = range(1, 16);
+
+    function towerHTML(name) {
+      const floors = [
+        [301, 302, 303, 304],
+        [201, 202, 203, 204],
+        [101, 102, 103, 104],
+        [1, 2, 3, 4],
+      ];
+      const cells = floors
+        .map((row) =>
+          row
+            .map((u) => {
+              const spot = aptToSpot.get(`${name}|${u}`);
+              return `<div class="u" data-tower="${name}" data-unit="${u}" data-spot="${spot}" title="${name}${unitLabel(u)} → vaga ${spot}">${unitLabel(u)}<span class="uv">v.${spot}</span></div>`;
+            })
+            .join("")
+        )
+        .join("");
+      return `<div class="tower"><h3>${name}<span class="sub">${TOWER_SUB[name]}</span></h3><div class="grid">${cells}</div></div>`;
+    }
+
+    function spotEl(n) {
+      const o = owner(n);
+      const cls = COLORS[o] || "reserva";
+      const apt = spotToApt.get(n);
+      const aptHtml = apt
+        ? `<span class="apt">${apt.torre}${unitLabel(apt.unit)}</span>`
+        : o === "ROT"
+          ? `<span class="apt">rotativa</span>`
+          : `<span class="apt">reserva</span>`;
+      const title = apt
+        ? `Vaga ${n} → ${apt.torre}${unitLabel(apt.unit)}`
+        : `Vaga ${n} · ${LABELS[o]}`;
+      return `<div class="spot ${cls}" data-n="${n}" data-owner="${o}" data-unit="${apt ? apt.unit : ""}" title="${title}"><span>${n}</span>${aptHtml}</div>`;
+    }
+
+    function colHTML(nums) {
+      return `<div class="col">${nums.map(spotEl).join("")}</div>`;
+    }
+
+    const map = document.getElementById("map");
+    map.innerHTML = `
+      <div class="zone-tags">
+        <span>Esquerda · caminho único C/D</span>
+        <span>Estacionamento central</span>
+        <span>Direita · caminho único A/B</span>
+      </div>
+
+      <div class="site">
+        <div class="t-c2">${towerHTML("C2")}</div>
+        <div class="path-v path-v-left-outer" title="Ramo vertical C2 ↔ D2"></div>
+        <div class="t-c1">${towerHTML("C1")}</div>
+        <div class="path-v path-v-left-inner" title="Ramo vertical C1 ↔ D1"></div>
+
+        <div class="path-h-left" title="Caminho cinza esquerdo (acesso único C e D)">
+          <span class="path-label">← C / D</span>
+        </div>
+
+        <div class="central">
+          ${colHTML(COL_FAR_LEFT)}
+          ${colHTML(COL_MID_LEFT)}
+          ${colHTML(COL_MID_RIGHT)}
+          ${colHTML(COL_FAR_RIGHT)}
+        </div>
+
+        <div class="path-h-right" title="Caminho cinza direito (acesso único A e B)">
+          <span class="path-label">A / B →</span>
+        </div>
+
+        <div class="path-v path-v-right-inner" title="Ramo vertical B2 ↔ A2"></div>
+        <div class="t-b2">${towerHTML("B2")}</div>
+        <div class="path-v path-v-right-outer" title="Ramo vertical B1 ↔ A1"></div>
+        <div class="t-b1">${towerHTML("B1")}</div>
+
+        <div class="t-d2">${towerHTML("D2")}</div>
+        <div class="t-d1">${towerHTML("D1")}</div>
+        <div class="t-a2">${towerHTML("A2")}</div>
+        <div class="t-a1">${towerHTML("A1")}</div>
+      </div>
+
+      <p class="access-note">
+        Superior: C2·C1 (esq.) e B2·B1 (dir.) · Inferior: D2·D1 (esq.) e A2·A1 (dir.) ·
+        Cada lado tem caminho cinza próprio a partir do centro
+      </p>
+
+      <div class="street">
+        <div class="row-spots">
+          <div class="side">${STREET_TOP_LEFT.map(spotEl).join("")}</div>
+          <div class="gap"></div>
+          <div class="side right">${STREET_TOP_RIGHT.map(spotEl).join("")}</div>
+        </div>
+        <div class="road"><span class="spur"></span>PORTARIA</div>
+        <div class="row-spots">
+          <div class="side">${STREET_BOT_LEFT.map(spotEl).join("")}</div>
+          <div class="gap"></div>
+          <div class="side right">${STREET_BOT_RIGHT.map(spotEl).join("")}</div>
+        </div>
+      </div>
+    `;
+
+    const counts = {};
+    for (const el of map.querySelectorAll(".spot")) {
+      const o = el.dataset.owner;
+      counts[o] = (counts[o] || 0) + 1;
+    }
+
+    const legendOrder = ["C2", "C1", "D2", "D1", "B2", "B1", "A2", "A1", "ROT", "RES"];
+    const legend = document.getElementById("legend");
+    const cssVar = {
+      C1: "var(--C1)", C2: "var(--C2)", D1: "var(--D1)", D2: "var(--D2)",
+      B2: "var(--B2)", B1: "var(--B1)", A2: "var(--A2)", A1: "var(--A1)",
+      ROT: "var(--ROT)", RES: "var(--RES)",
+    };
+
+    legend.innerHTML = legendOrder
+      .map(
+        (k) => `
+      <button type="button" data-filter="${k}">
+        <span class="swatch" style="background:${cssVar[k]}"></span>
+        <span>${LABELS[k]}</span>
+        <span class="meta">${counts[k] || 0}</span>
+      </button>`
+      )
+      .join("");
+
+    function tableForTower(torre) {
+      const rows = UNITS.map((u) => {
+        const spot = aptToSpot.get(`${torre}|${u}`);
+        return `<tr><td>${torre}${unitLabel(u)}</td><td>vaga ${spot}</td></tr>`;
+      }).join("");
+      return `<table><thead><tr><th>Apto</th><th>Vaga</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    const tableOrder = ["C2", "C1", "D2", "D1", "B2", "B1", "A2", "A1"];
+    const allTables = document.getElementById("allTables");
+    allTables.innerHTML = tableOrder
+      .map(
+        (t) => `
+      <section>
+        <h3><span class="swatch" style="background:${cssVar[t]};width:12px;height:12px;border-radius:2px;display:inline-block"></span>${t} · ${TOWER_SUB[t]}</h3>
+        ${tableForTower(t)}
+      </section>`
+      )
+      .join("");
+
+    const detail = document.getElementById("detail");
+    const assignPanel = document.getElementById("assignPanel");
+    const filterSelect = document.getElementById("filter");
+
+    function renderAssignPanel(value) {
+      if (!SPOTS_ORDERED[value]) {
+        assignPanel.innerHTML = `<h3>Regra de vínculo</h3>
+          <p style="margin:0 0 8px;font-size:0.8rem;color:var(--muted)">
+            Acesso à entrada do bloco: <strong>sempre pelo centro</strong> → caminho cinza → ramo da torre.<br>
+            Vaga mais perto desse trajeto → <strong>/301</strong>; mais longe → <strong>/001</strong>.<br><br>
+            <strong>Esquerda:</strong> centro → caminho → ↑ C2/C1 ou ↓ D2/D1.<br>
+            <strong>Direita:</strong> centro → caminho → ↑ B2/B1 ou ↓ A2/A1.<br>
+            D1/D2: 4 vagas centrais sul cada + rua a partir do centro.
+          </p>`;
+        return;
+      }
+      assignPanel.innerHTML = `<h3>${value} — apto → vaga</h3>${tableForTower(value)}`;
+    }
+
+    function applyFilter(value) {
+      filterSelect.value = value;
+      for (const btn of legend.querySelectorAll("button")) {
+        btn.classList.toggle("active", btn.dataset.filter === value);
+      }
+      for (const el of map.querySelectorAll(".spot")) {
+        const match = value === "ALL" || el.dataset.owner === value;
+        el.classList.toggle("dim", !match);
+      }
+      for (const el of map.querySelectorAll(".tower .u")) {
+        const match = value === "ALL" || el.dataset.tower === value;
+        el.style.opacity = match ? "1" : "0.25";
+      }
+      renderAssignPanel(value);
+    }
+
+    legend.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-filter]");
+      if (!btn) return;
+      const v = btn.dataset.filter;
+      applyFilter(filterSelect.value === v ? "ALL" : v);
+    });
+
+    filterSelect.addEventListener("change", () => applyFilter(filterSelect.value));
+    document.getElementById("reset").addEventListener("click", () => applyFilter("ALL"));
+
+    map.addEventListener("mouseover", (e) => {
+      const spot = e.target.closest(".spot");
+      if (spot) {
+        const n = spot.dataset.n;
+        const o = spot.dataset.owner;
+        const apt = spotToApt.get(Number(n));
+        detail.innerHTML = apt
+          ? `<strong>Vaga ${n}</strong><br>${apt.torre}${unitLabel(apt.unit)}`
+          : `<strong>Vaga ${n}</strong><br>${LABELS[o]}`;
+        return;
+      }
+      const u = e.target.closest(".u");
+      if (u) {
+        detail.innerHTML = `<strong>${u.dataset.tower}${unitLabel(Number(u.dataset.unit))}</strong><br>Vaga ${u.dataset.spot}`;
+      }
+    });
+
+    map.addEventListener("click", (e) => {
+      const u = e.target.closest(".u");
+      const spot = e.target.closest(".spot");
+      map.querySelectorAll(".u.hl").forEach((el) => el.classList.remove("hl"));
+      map.querySelectorAll(".spot.highlight").forEach((el) => el.classList.remove("highlight"));
+      if (u) {
+        u.classList.add("hl");
+        const s = map.querySelector(`.spot[data-n="${u.dataset.spot}"]`);
+        if (s) s.classList.add("highlight");
+        applyFilter(u.dataset.tower);
+      } else if (spot && spot.dataset.unit) {
+        spot.classList.add("highlight");
+        const cell = map.querySelector(`.u[data-tower="${spot.dataset.owner}"][data-unit="${spot.dataset.unit}"]`);
+        if (cell) cell.classList.add("hl");
+        if (SPOTS_ORDERED[spot.dataset.owner]) applyFilter(spot.dataset.owner);
+      }
+    });
+
+    applyFilter("ALL");
+  </script>
+</body>
+</html>
