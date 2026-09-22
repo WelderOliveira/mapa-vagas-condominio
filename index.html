@@ -567,9 +567,9 @@
     // Unidades casam nessa ordem: /301…/304, /201…, /101…, /001…/004
     // Assim quem sobe mais escadas anda menos no pátio.
     const SPOTS_ORDERED = {
-      // Superior esquerdo — ramo ↑ do caminho esquerdo (centro → norte)
-      C1: [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 94, 95, 96, 97, 98, 99],
-      C2: [89, 90, 91, 92, 93, 85, 86, 87, 88, 112, 113, 114, 115, 116, 117, 118],
+      // Superior esquerdo — C1 mais perto do centro → cede o anel melhor ao C2 (equidade)
+      C1: [89, 90, 91, 92, 93, 85, 86, 87, 88, 112, 113, 114, 115, 116, 117, 118],
+      C2: [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 94, 95, 96, 97, 98, 99],
       // Inferior esquerdo — acesso SEMPRE pelo centro → ramo ↓ do caminho cinza.
       // Perto do junction: colunas sul (84→77); depois rua do centro → fora (119→142).
       // D1 e D2 dividem 50/50 o anel central sul (4+4) e a rua.
@@ -800,14 +800,7 @@
 
     function renderAssignPanel(value) {
       if (!SPOTS_ORDERED[value]) {
-        assignPanel.innerHTML = `<h3>Regra de vínculo</h3>
-          <p style="margin:0 0 8px;font-size:0.8rem;color:var(--muted)">
-            Acesso à entrada do bloco: <strong>sempre pelo centro</strong> → caminho cinza → ramo da torre.<br>
-            Vaga mais perto desse trajeto → <strong>/301</strong>; mais longe → <strong>/001</strong>.<br><br>
-            <strong>Esquerda:</strong> centro → caminho → ↑ C2/C1 ou ↓ D2/D1.<br>
-            <strong>Direita:</strong> centro → caminho → ↑ B2/B1 ou ↓ A2/A1.<br>
-            D1/D2: 4 vagas centrais sul cada + rua a partir do centro.
-          </p>`;
+        assignPanel.innerHTML = "";
         return;
       }
       assignPanel.innerHTML = `<h3>${value} — apto → vaga</h3>${tableForTower(value)}`;
